@@ -1,0 +1,40 @@
+# Example: corporate.iptables
+# A corporate edge firewall with intentional misconfigurations for demo purposes.
+# Run: python src/main.py audit examples/corporate.iptables
+#
+# Issues you should find:
+#   [HIGH]   Rule 5: SSH exposed to all source IPs (0.0.0.0/0)
+#   [HIGH]   Rule 6: Telnet (port 23) allowed
+#   [MEDIUM] Rule 8: shadow rule — 10.0.1.0/24 is subset of 10.0.0.0/8 (rule 7)
+#   [LOW]    Default policy for FORWARD chain is ACCEPT
+*filter
+:INPUT DROP [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+
+# Loopback
+-A INPUT -i lo -j ACCEPT
+
+# Stateful connections
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+# Web traffic
+-A INPUT -p tcp --dport 80  -j ACCEPT
+-A INPUT -p tcp --dport 443 -j ACCEPT
+
+# SSH open to the internet (BAD: should restrict to management CIDR)
+-A INPUT -p tcp --dport 22 -j ACCEPT
+
+# Telnet allowed (BAD: plaintext protocol)
+-A INPUT -p tcp --dport 23 -j ACCEPT
+
+# Allow all from internal range
+-A INPUT -s 10.0.0.0/8 -j ACCEPT
+
+# Shadow rule: 10.0.1.0/24 is a subset of 10.0.0.0/8 above — never reached
+-A INPUT -s 10.0.1.0/24 -j DROP
+
+# LOG before final drop (no following DROP — informational)
+-A INPUT -j LOG
+
+COMMIT
